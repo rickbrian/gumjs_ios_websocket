@@ -24,20 +24,39 @@ gzip -9c Packages > Packages.gz
 bzip2 -9kf Packages || true
 xz -9kf Packages || true
 
-# Create Release file
-cat > Release << 'EOF'
+# Build Release file with hash entries so APT can validate the index
+{
+    cat << 'HEADER'
 Origin: GumJS WebSocket Repo
 Label: GumJS WebSocket
 Suite: stable
 Version: 1.0
 Codename: ios
-Architectures: iphoneos-arm iphoneos-arm64
+Architectures: iphoneos-arm64
 Components: main
 Description: GumJS WebSocket iOS tweak repository
-EOF
+HEADER
 
-# Create CydiaIcon (optional branding)
-# Sileo repo page
+    echo "MD5Sum:"
+    for f in Packages Packages.gz Packages.bz2 Packages.xz; do
+        if [ -f "$f" ]; then
+            hash=$(md5 -q "$f" 2>/dev/null || md5sum "$f" | cut -d' ' -f1)
+            size=$(wc -c < "$f" | tr -d ' ')
+            printf " %s %16d %s\n" "$hash" "$size" "$f"
+        fi
+    done
+
+    echo "SHA256:"
+    for f in Packages Packages.gz Packages.bz2 Packages.xz; do
+        if [ -f "$f" ]; then
+            hash=$(shasum -a 256 "$f" 2>/dev/null | cut -d' ' -f1 || sha256sum "$f" | cut -d' ' -f1)
+            size=$(wc -c < "$f" | tr -d ' ')
+            printf " %s %16d %s\n" "$hash" "$size" "$f"
+        fi
+    done
+} > Release
+
+# Sileo featured banner
 cat > sileo-featured.json << 'JSONEOF'
 {
   "class": "FeaturedBannersView",
@@ -100,7 +119,7 @@ code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-size: 13p
 </html>
 HTMLEOF
 
-# Create a simple index page for the repo root
+# Simple index page for browser access
 cat > index.html << 'INDEXEOF'
 <!DOCTYPE html>
 <html>
