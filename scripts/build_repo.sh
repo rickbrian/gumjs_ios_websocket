@@ -6,7 +6,6 @@ DEB_DIR="${2:-packages}"
 
 mkdir -p "$REPO_DIR/debs"
 
-# Disable Jekyll processing so extensionless files (Packages, Release) are served correctly
 touch "$REPO_DIR/.nojekyll"
 
 # Copy all .deb files
@@ -17,14 +16,69 @@ if [ -z "$(ls -A "$REPO_DIR/debs/" 2>/dev/null)" ]; then
     exit 1
 fi
 
-# Generate Packages index
 cd "$REPO_DIR"
-dpkg-scanpackages debs /dev/null > Packages
-gzip -9c Packages > Packages.gz
-bzip2 -9kf Packages || true
-xz -9kf Packages || true
 
-# Create Release file (standard Cydia/Sileo flat repo format)
+# --- Build proper APT repository structure ---
+# Sileo/APT with Suite+Components looks for dists/stable/main/binary-<arch>/Packages
+DIST_DIR="dists/stable/main/binary-iphoneos-arm64"
+mkdir -p "$DIST_DIR"
+
+# Generate Packages index (paths relative to repo root)
+dpkg-scanpackages debs /dev/null > "$DIST_DIR/Packages"
+gzip -9c "$DIST_DIR/Packages" > "$DIST_DIR/Packages.gz"
+bzip2 -9kf "$DIST_DIR/Packages" || true
+
+# Also put Packages at root for backward compatibility with simple clients
+cp "$DIST_DIR/Packages" Packages
+cp "$DIST_DIR/Packages.gz" Packages.gz
+
+# Generate Release file for the distribution
+PKGFILE="$DIST_DIR/Packages"
+PKGGZ="$DIST_DIR/Packages.gz"
+PKGBZ2="$DIST_DIR/Packages.bz2"
+
+# Per-component Release
+{
+    echo "Archive: stable"
+    echo "Component: main"
+    echo "Origin: GumJS WebSocket Repo"
+    echo "Label: GumJS WebSocket"
+    echo "Architecture: iphoneos-arm64"
+} > "$DIST_DIR/Release"
+
+# Top-level Release (dists/stable/Release)
+{
+    echo "Origin: GumJS WebSocket Repo"
+    echo "Label: GumJS WebSocket"
+    echo "Suite: stable"
+    echo "Version: 1.0"
+    echo "Codename: ios"
+    echo "Architectures: iphoneos-arm64"
+    echo "Components: main"
+    echo "Description: GumJS WebSocket iOS tweak repository"
+
+    echo "MD5Sum:"
+    for f in "main/binary-iphoneos-arm64/Packages" "main/binary-iphoneos-arm64/Packages.gz" "main/binary-iphoneos-arm64/Packages.bz2"; do
+        fp="dists/stable/$f"
+        if [ -f "$fp" ]; then
+            hash=$(md5 -q "$fp" 2>/dev/null || md5sum "$fp" | cut -d' ' -f1)
+            size=$(wc -c < "$fp" | tr -d ' ')
+            printf " %s %16d %s\n" "$hash" "$size" "$f"
+        fi
+    done
+
+    echo "SHA256:"
+    for f in "main/binary-iphoneos-arm64/Packages" "main/binary-iphoneos-arm64/Packages.gz" "main/binary-iphoneos-arm64/Packages.bz2"; do
+        fp="dists/stable/$f"
+        if [ -f "$fp" ]; then
+            hash=$(shasum -a 256 "$fp" | cut -d' ' -f1)
+            size=$(wc -c < "$fp" | tr -d ' ')
+            printf " %s %16d %s\n" "$hash" "$size" "$f"
+        fi
+    done
+} > dists/stable/Release
+
+# Also put a simple Release at root for flat-repo fallback
 cat > Release << 'EOF'
 Origin: GumJS WebSocket Repo
 Label: GumJS WebSocket
@@ -99,7 +153,7 @@ code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-size: 13p
 </html>
 HTMLEOF
 
-# Simple index page for browser access
+# Simple index page
 cat > index.html << 'INDEXEOF'
 <!DOCTYPE html>
 <html>
@@ -132,4 +186,5 @@ a { color: #00d2ff; }
 INDEXEOF
 
 echo "[+] Repo built at $REPO_DIR/"
+echo "    Structure: dists/stable/main/binary-iphoneos-arm64/"
 echo "    Packages: $(ls debs/*.deb | wc -l) deb(s)"
