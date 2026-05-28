@@ -1,0 +1,22 @@
+# Theos build output
+.theos/
+packages/
+obj/
+
+# Frida devkit (downloaded via scripts/download_devkit.sh)
+lib/
+
+# Reference projects (not part of iOS build)
+zygisk-gumjs-websocket/
+zygisk-gumjs-websocket.zip
+stealth-frida-gumjs-devkit-17.9.11-ios-arm64/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

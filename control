@@ -1,0 +1,9 @@
+Package: com.gjws.gumjswebsocket
+Name: GumJS WebSocket
+Depends: mobilesubstrate (>= 0.9.5000)
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Inject GumJS scripts into iOS apps via WebSocket. Supports hot-reload from PC server.
+Maintainer: rickbrian
+Author: rickbrian
+Section: Tweaks
