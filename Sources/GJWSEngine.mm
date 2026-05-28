@@ -47,9 +47,9 @@ static void gjws_exclude_own_range(void) {
     ctx->addr = addr;
 
     gum_process_enumerate_modules(
-        [](const GumModuleDetails *details, gpointer user_data) -> gboolean {
+        [](GumModule *module, gpointer user_data) -> gboolean {
             auto *c = static_cast<Ctx *>(user_data);
-            const GumMemoryRange *range = details->range;
+            const GumMemoryRange *range = gum_module_get_range(module);
             if (c->addr >= range->base_address &&
                 c->addr < range->base_address + range->size) {
                 gum_stalker_exclude(gum_script_get_stalker(g_script), range);
