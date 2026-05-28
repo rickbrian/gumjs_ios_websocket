@@ -28,24 +28,6 @@ jobs:
           chmod +x scripts/download_devkit.sh
           ./scripts/download_devkit.sh
 
-      - name: Create private framework stubs
-        run: |
-          export THEOS=$HOME/theos
-          STUB_DIR="$THEOS/vendor/lib/Preferences.framework"
-          mkdir -p "$STUB_DIR"
-          cat > "$STUB_DIR/Preferences.tbd" << 'EOFTBD'
-          --- !tapi-tbd
-          tbd-version: 4
-          targets: [arm64-ios, arm64e-ios]
-          install-name: /System/Library/PrivateFrameworks/Preferences.framework/Preferences
-          current-version: 1
-          exports:
-            - targets: [arm64-ios, arm64e-ios]
-              objc-classes: [PSListController, PSSpecifier, PSTableCell,
-                             PSEditableTableCell, PSViewController,
-                             PSHeaderFooterView, PSSwitchTableCell]
-          EOFTBD
-
       - name: Build package
         run: |
           export THEOS=$HOME/theos
