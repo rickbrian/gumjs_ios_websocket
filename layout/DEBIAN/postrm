@@ -1,11 +1,11 @@
 #!/bin/bash
 # Clean up after removal
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
-    # Remove any leftover tweak files
-    rm -f /Library/MobileSubstrate/DynamicLibraries/GumJSWebSocket.dylib
-    rm -f /Library/MobileSubstrate/DynamicLibraries/GumJSWebSocket.plist
-    rm -rf /Library/PreferenceBundles/GJWSPreferences.bundle
-    rm -f /Library/PreferenceLoader/Preferences/GJWSPreferences.plist
+    # Remove any leftover tweak files (rootless paths)
+    rm -f /var/jb/Library/MobileSubstrate/DynamicLibraries/GumJSWebSocket.dylib
+    rm -f /var/jb/Library/MobileSubstrate/DynamicLibraries/GumJSWebSocket.plist
+    rm -rf /var/jb/Library/PreferenceBundles/GJWSPreferences.bundle
+    rm -f /var/jb/Library/PreferenceLoader/Preferences/GJWSPreferences.plist
 
     # Remove config plist (in case prerm missed it)
     rm -f /var/mobile/Library/Preferences/com.gjws.config.plist
