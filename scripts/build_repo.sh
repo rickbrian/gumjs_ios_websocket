@@ -24,34 +24,17 @@ gzip -9c Packages > Packages.gz
 bzip2 -9kf Packages || true
 xz -9kf Packages || true
 
-# Build Release file with hash entries so APT can validate the index
-{
-    cat << 'HEADER'
+# Create Release file (standard Cydia/Sileo flat repo format)
+cat > Release << 'EOF'
 Origin: GumJS WebSocket Repo
 Label: GumJS WebSocket
+Suite: stable
 Version: 1.0
+Codename: ios
 Architectures: iphoneos-arm64
+Components: main
 Description: GumJS WebSocket iOS tweak repository
-HEADER
-
-    echo "MD5Sum:"
-    for f in Packages Packages.gz Packages.bz2 Packages.xz; do
-        if [ -f "$f" ]; then
-            hash=$(md5 -q "$f" 2>/dev/null || md5sum "$f" | cut -d' ' -f1)
-            size=$(wc -c < "$f" | tr -d ' ')
-            printf " %s %16d %s\n" "$hash" "$size" "$f"
-        fi
-    done
-
-    echo "SHA256:"
-    for f in Packages Packages.gz Packages.bz2 Packages.xz; do
-        if [ -f "$f" ]; then
-            hash=$(shasum -a 256 "$f" 2>/dev/null | cut -d' ' -f1 || sha256sum "$f" | cut -d' ' -f1)
-            size=$(wc -c < "$f" | tr -d ' ')
-            printf " %s %16d %s\n" "$hash" "$size" "$f"
-        fi
-    done
-} > Release
+EOF
 
 # Sileo featured banner
 cat > sileo-featured.json << 'JSONEOF'
