@@ -42,10 +42,11 @@ static NSString *const kGJWSConfigPath =
                     gjws_start([uriCopy UTF8String]);
                 });
         } else {
+            NSString *uriCopy = [uri copy];
             dispatch_async(
                 dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
                 ^{
-                    gjws_start([uri UTF8String]);
+                    gjws_start([uriCopy UTF8String]);
                 });
         }
     }

@@ -12,6 +12,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <atomic>
 
 #pragma mark - Globals
 
@@ -25,6 +26,8 @@ static NSURLSession *g_wsSession = nil;
 static NSURLSessionWebSocketTask *g_wsTask = nil;
 
 static std::unordered_map<std::string, std::vector<std::string>> g_scriptChunks;
+
+static std::atomic<bool> g_started{false};
 
 #pragma mark - Forward Declarations
 
@@ -72,17 +75,23 @@ static void gjws_on_script_message(const gchar *message, GBytes *data,
     gjws_ws_send([NSString stringWithUTF8String:message]);
 }
 
+#pragma mark - Safe Script Unload
+
+static void gjws_unload_current_script(void) {
+    if (g_script) {
+        gum_script_unload_sync(g_script, g_cancellable);
+        g_object_unref(g_script);
+        g_script = NULL;
+    }
+}
+
 #pragma mark - Script Operations
 
 static void gjws_start_script_sync(const char *source) {
     GJWS_LOG("Loading script (sync)...");
     GError *error = NULL;
 
-    if (g_script) {
-        gum_script_unload_sync(g_script, g_cancellable);
-        g_object_unref(g_script);
-        g_script = NULL;
-    }
+    gjws_unload_current_script();
 
     g_script = gum_script_backend_create_sync(
         g_backend, "base_script", source, NULL, g_cancellable, &error);
@@ -103,10 +112,7 @@ static void gjws_on_script_created_cb(GObject *source, GAsyncResult *res,
                                       gpointer user_data) {
     GError *error = NULL;
 
-    if (g_script) {
-        g_object_unref(g_script);
-        g_script = NULL;
-    }
+    gjws_unload_current_script();
 
     g_script = gum_script_backend_create_finish(
         GUM_SCRIPT_BACKEND(source), res, &error);
@@ -136,7 +142,8 @@ static std::string gjws_process_big_script(NSDictionary *msg) {
     int index = [msg[@"chunk_index"] intValue];
     NSString *data = msg[@"chunk_data"];
 
-    if (!chunkId || !data || index < 0 || index >= total) return "";
+    if (!chunkId || !data || total <= 0 || index < 0 || index >= total)
+        return "";
 
     std::string cid = [chunkId UTF8String];
     if (g_scriptChunks.find(cid) == g_scriptChunks.end()) {
@@ -144,11 +151,16 @@ static std::string gjws_process_big_script(NSDictionary *msg) {
     }
     g_scriptChunks[cid][index] = [data UTF8String];
 
-    if (index + 1 == total) {
+    bool allReceived = true;
+    for (auto &c : g_scriptChunks[cid]) {
+        if (c.empty()) { allReceived = false; break; }
+    }
+
+    if (allReceived) {
         std::string full;
         for (auto &c : g_scriptChunks[cid]) full += c;
         g_scriptChunks.erase(cid);
-        GJWS_LOG("Big script reassembly complete");
+        GJWS_LOG("Big script reassembly complete (%zu bytes)", full.size());
         return full;
     }
     return "";
@@ -169,40 +181,40 @@ static gboolean gjws_dispatch_ws_message(gpointer data) {
                                    freeWhenDone:NO];
         NSDictionary *msg =
             [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
-        if (!msg || !msg[@"type"]) goto done;
 
-        NSString *type = msg[@"type"];
+        if (msg && msg[@"type"]) {
+            NSString *type = msg[@"type"];
 
-        if ([type isEqualToString:@"start"] ||
-            [type isEqualToString:@"script"]) {
-            BOOL isStart = [type isEqualToString:@"start"];
-            if ([msg[@"big_script"] boolValue]) {
-                std::string src = gjws_process_big_script(msg);
-                if (!src.empty()) {
-                    if (isStart)
-                        gjws_start_script_sync(src.c_str());
-                    else
-                        gjws_create_script_async(src.c_str());
+            if ([type isEqualToString:@"start"] ||
+                [type isEqualToString:@"script"]) {
+                BOOL isStart = [type isEqualToString:@"start"];
+                if ([msg[@"big_script"] boolValue]) {
+                    std::string src = gjws_process_big_script(msg);
+                    if (!src.empty()) {
+                        if (isStart)
+                            gjws_start_script_sync(src.c_str());
+                        else
+                            gjws_create_script_async(src.c_str());
+                    }
+                } else {
+                    NSString *src = msg[@"script"];
+                    if (src) {
+                        if (isStart)
+                            gjws_start_script_sync([src UTF8String]);
+                        else
+                            gjws_create_script_async([src UTF8String]);
+                    }
                 }
-            } else {
-                NSString *src = msg[@"script"];
-                if (src) {
-                    if (isStart)
-                        gjws_start_script_sync([src UTF8String]);
-                    else
-                        gjws_create_script_async([src UTF8String]);
-                }
+            } else if ([type isEqualToString:@"post"]) {
+                NSString *s = msg[@"script"];
+                if (s && g_script)
+                    gum_script_post(g_script, [s UTF8String], NULL);
+            } else if ([type isEqualToString:@"end"]) {
+                if (g_loop) g_main_loop_quit(g_loop);
             }
-        } else if ([type isEqualToString:@"post"]) {
-            NSString *s = msg[@"script"];
-            if (s && g_script)
-                gum_script_post(g_script, [s UTF8String], NULL);
-        } else if ([type isEqualToString:@"end"]) {
-            gjws_cleanup();
         }
     }
 
-done:
     free(pm->json);
     free(pm);
     return G_SOURCE_REMOVE;
@@ -297,11 +309,19 @@ static void gjws_run_loop(const char *uri) {
         g_wsDelegate = [_GJWSWebSocketDelegate new];
         NSURLSessionConfiguration *cfg =
             [NSURLSessionConfiguration defaultSessionConfiguration];
+        cfg.timeoutIntervalForRequest = 30;
+        cfg.timeoutIntervalForResource = 300;
         g_wsSession = [NSURLSession sessionWithConfiguration:cfg
                                                     delegate:g_wsDelegate
                                                delegateQueue:nil];
 
         NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:uri]];
+        if (!url) {
+            GJWS_LOG("Invalid WebSocket URI, aborting");
+            gum_deinit_embedded();
+            g_started.store(false);
+            return;
+        }
         g_wsTask = [g_wsSession webSocketTaskWithURL:url];
         [g_wsTask resume];
     }
@@ -312,10 +332,44 @@ static void gjws_run_loop(const char *uri) {
     g_main_loop_run(g_loop);
     g_main_context_pop_thread_default(g_context);
 
-    GJWS_LOG("Engine loop exited");
+    GJWS_LOG("Engine loop exited, cleaning up...");
+
+    gjws_unload_current_script();
+
+    g_scriptChunks.clear();
+
+    if (g_cancellable) {
+        g_cancellable_cancel(g_cancellable);
+        g_object_unref(g_cancellable);
+        g_cancellable = NULL;
+    }
+
+    if (g_loop) {
+        g_main_loop_unref(g_loop);
+        g_loop = NULL;
+    }
+
+    @autoreleasepool {
+        [g_wsTask cancel];
+        g_wsTask = nil;
+        [g_wsSession invalidateAndCancel];
+        g_wsSession = nil;
+        g_wsDelegate = nil;
+    }
+
+    gum_deinit_embedded();
+    g_started.store(false);
+
+    GJWS_LOG("Cleanup complete");
 }
 
 void gjws_start(const char *uri) {
+    bool expected = false;
+    if (!g_started.compare_exchange_strong(expected, true)) {
+        GJWS_LOG("Engine already running, ignoring duplicate start");
+        return;
+    }
+
     GJWS_LOG("gjws_start called");
     char *uri_copy = strdup(uri);
     std::thread t([uri_copy]() {
@@ -326,35 +380,8 @@ void gjws_start(const char *uri) {
 }
 
 void gjws_cleanup(void) {
-    GJWS_LOG("Cleaning up...");
-
+    GJWS_LOG("gjws_cleanup: requesting shutdown...");
     if (g_loop) {
         g_main_loop_quit(g_loop);
-        g_main_loop_unref(g_loop);
-        g_loop = NULL;
     }
-
-    if (g_script) {
-        gum_script_unload_sync(g_script, g_cancellable);
-        g_object_unref(g_script);
-        g_script = NULL;
-    }
-
-    if (g_cancellable) {
-        g_cancellable_cancel(g_cancellable);
-        g_object_unref(g_cancellable);
-        g_cancellable = NULL;
-    }
-
-    gum_deinit_embedded();
-
-    @autoreleasepool {
-        [g_wsTask cancel];
-        g_wsTask = nil;
-        [g_wsSession invalidateAndCancel];
-        g_wsSession = nil;
-        g_wsDelegate = nil;
-    }
-
-    GJWS_LOG("Cleanup complete");
 }

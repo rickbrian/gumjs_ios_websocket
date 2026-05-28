@@ -4,9 +4,6 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     # Remove config plist
     rm -f /var/mobile/Library/Preferences/com.gjws.config.plist
 
-    # Remove preference bundle cache
-    rm -rf /var/mobile/Library/Caches/com.apple.Preferences
-
     # Kill Settings.app to unload preference bundle
     killall -9 Preferences 2>/dev/null || true
 fi
