@@ -6,6 +6,9 @@ DEB_DIR="${2:-packages}"
 
 mkdir -p "$REPO_DIR/debs"
 
+# Disable Jekyll processing so extensionless files (Packages, Release) are served correctly
+touch "$REPO_DIR/.nojekyll"
+
 # Copy all .deb files
 cp "$DEB_DIR"/*.deb "$REPO_DIR/debs/" 2>/dev/null || true
 
@@ -96,6 +99,38 @@ code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-size: 13p
 </body>
 </html>
 HTMLEOF
+
+# Create a simple index page for the repo root
+cat > index.html << 'INDEXEOF'
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GumJS WebSocket Repo</title>
+<style>
+body { font-family: -apple-system, sans-serif; padding: 20px; background: #1a1a2e; color: #eee; max-width: 600px; margin: 0 auto; }
+h1 { color: #00d2ff; }
+code { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 14px; color: #0f0; }
+a { color: #00d2ff; }
+.card { background: #16213e; padding: 20px; border-radius: 12px; margin: 20px 0; }
+</style>
+</head>
+<body>
+<h1>GumJS WebSocket</h1>
+<div class="card">
+<h2>Add to Sileo / Cydia</h2>
+<p>Add this URL as a source:</p>
+<code>https://rickbrian.github.io/gumjs_ios_websocket/</code>
+</div>
+<div class="card">
+<h2>Direct Download</h2>
+<p><a href="debs/">Browse .deb packages</a></p>
+</div>
+<p><a href="depiction/com.gjws.gumjswebsocket.html">Package Details</a></p>
+</body>
+</html>
+INDEXEOF
 
 echo "[+] Repo built at $REPO_DIR/"
 echo "    Packages: $(ls debs/*.deb | wc -l) deb(s)"
