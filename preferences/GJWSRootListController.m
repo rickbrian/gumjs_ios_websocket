@@ -103,7 +103,7 @@ static NSString *const kConfigPath =
 
 - (void)setEnabled:(id)value specifier:(PSSpecifier *)specifier {
     NSMutableDictionary *config = [self loadConfig];
-    config[@"enabled"] = value;
+    config[@"enabled"] = value ?: @NO;
     [self saveConfig:config];
 }
 

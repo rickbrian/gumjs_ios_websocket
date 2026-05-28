@@ -113,10 +113,13 @@ static NSString *const kConfigPath =
 
 - (void)setPref:(id)value specifier:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"prefKey"];
+    if (!key || !self.bundleId) return;
 
     NSMutableDictionary *config = [self loadConfig];
-    NSMutableDictionary *apps = [config[@"apps"] mutableCopy];
-    NSMutableDictionary *appConf = [apps[self.bundleId] mutableCopy];
+    NSMutableDictionary *apps =
+        [config[@"apps"] mutableCopy] ?: [NSMutableDictionary new];
+    NSMutableDictionary *appConf =
+        [apps[self.bundleId] mutableCopy] ?: [NSMutableDictionary new];
 
     if ([key isEqualToString:@"delay"]) {
         appConf[key] = @([value intValue]);
