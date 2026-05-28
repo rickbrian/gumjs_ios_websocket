@@ -1,0 +1,6 @@
+#!/bin/bash
+# Restart SpringBoard after install to load the tweak
+if [ "$1" = "configure" ]; then
+    sbreload 2>/dev/null || killall -9 SpringBoard 2>/dev/null || true
+fi
+exit 0

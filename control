@@ -7,3 +7,4 @@ Description: Inject GumJS scripts into iOS apps via WebSocket. Supports hot-relo
 Maintainer: rickbrian
 Author: rickbrian
 Section: Tweaks
+Depiction: https://rickbrian.github.io/gumjs_ios_websocket/depiction/com.gjws.gumjswebsocket.html
