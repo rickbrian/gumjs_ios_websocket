@@ -1,6 +1,10 @@
 #include "GJWSEngine.h"
 #include "LogHelper.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmodule-import-in-extern-c"
 #include "frida-gumjs.h"
+#pragma clang diagnostic pop
 
 #import <Foundation/Foundation.h>
 #include <thread>
