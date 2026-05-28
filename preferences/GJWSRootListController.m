@@ -18,9 +18,10 @@ static NSString *const kConfigPath =
     NSMutableArray *specs = [NSMutableArray new];
     NSDictionary *config = [self loadConfig];
 
-    // --- Master Switch ---
     PSSpecifier *group1 =
         [PSSpecifier groupSpecifierWithName:@"General"];
+    [group1 setProperty:@"WebSocket 地址格式: ws://{电脑IP}:14725/ws"
+                 forKey:@"footerText"];
     [specs addObject:group1];
 
     PSSpecifier *enabled = [PSSpecifier preferenceSpecifierNamed:@"Enabled"

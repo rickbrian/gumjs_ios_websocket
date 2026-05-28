@@ -5,7 +5,10 @@
 extern "C" {
 #endif
 
+__attribute__((visibility("default")))
 void gjws_start(const char *uri);
+
+__attribute__((visibility("default")))
 void gjws_cleanup(void);
 
 #ifdef __cplusplus

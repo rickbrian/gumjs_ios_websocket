@@ -6,13 +6,22 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = GumJSWebSocket
 
-GumJSWebSocket_FILES = Tweak.xm Sources/GJWSEngine.mm
-GumJSWebSocket_CFLAGS = -fobjc-arc -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c -Ilib
-GumJSWebSocket_CCFLAGS = -std=c++17 -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c
-GumJSWebSocket_LDFLAGS = lib/libfrida-gumjs.a -lresolv
-GumJSWebSocket_FRAMEWORKS = Foundation Security
+GumJSWebSocket_FILES = Tweak.xm
+GumJSWebSocket_CFLAGS = -fobjc-arc
+GumJSWebSocket_FRAMEWORKS = Foundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+
+LIBRARY_NAME = libGJWSEngine
+
+libGJWSEngine_FILES = Sources/GJWSEngine.mm
+libGJWSEngine_CFLAGS = -fobjc-arc -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c -Ilib
+libGJWSEngine_CCFLAGS = -std=c++17 -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c
+libGJWSEngine_LDFLAGS = lib/libfrida-gumjs.a -lresolv
+libGJWSEngine_FRAMEWORKS = Foundation Security
+libGJWSEngine_INSTALL_PATH = /usr/lib
+
+include $(THEOS_MAKE_PATH)/library.mk
 
 SUBPROJECTS += preferences
 include $(THEOS_MAKE_PATH)/aggregate.mk

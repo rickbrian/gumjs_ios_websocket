@@ -13,7 +13,6 @@ static NSString *const kConfigPath =
 
         NSMutableArray *specs = [NSMutableArray new];
 
-        // --- Settings ---
         PSSpecifier *group1 =
             [PSSpecifier groupSpecifierWithName:@"App Configuration"];
         [specs addObject:group1];
@@ -42,6 +41,12 @@ static NSString *const kConfigPath =
                   forKey:@"placeholder"];
         [uri setProperty:@NO forKey:@"noAutoCorrect"];
         [specs addObject:uri];
+
+        PSSpecifier *uriHint =
+            [PSSpecifier groupSpecifierWithName:@""];
+        [uriHint setProperty:@"格式: ws://{电脑IP}:14725/ws\n例如: ws://192.168.1.100:14725/ws"
+                      forKey:@"footerText"];
+        [specs addObject:uriHint];
 
         PSSpecifier *delay =
             [PSSpecifier preferenceSpecifierNamed:@"Delay (ms)"
