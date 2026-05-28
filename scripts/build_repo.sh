@@ -29,7 +29,6 @@ xz -9kf Packages || true
     cat << 'HEADER'
 Origin: GumJS WebSocket Repo
 Label: GumJS WebSocket
-Suite: ./
 Version: 1.0
 Architectures: iphoneos-arm64
 Description: GumJS WebSocket iOS tweak repository
