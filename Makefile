@@ -2,6 +2,8 @@ ARCHS = arm64
 TARGET := iphone:clang:latest:14.0
 THEOS_PACKAGE_SCHEME = rootless
 
+export THEOS_PACKAGE_SCHEME
+
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = GumJSWebSocket

@@ -1,3 +1,5 @@
+TARGET := iphone:clang:latest:14.0
+
 include $(THEOS)/makefiles/common.mk
 
 THEOS_PACKAGE_SCHEME = rootless
@@ -7,8 +9,8 @@ BUNDLE_NAME = GJWSPreferences
 GJWSPreferences_FILES = GJWSRootListController.m GJWSAppConfigController.m
 GJWSPreferences_INSTALL_PATH = /Library/PreferenceBundles
 GJWSPreferences_FRAMEWORKS = UIKit
-GJWSPreferences_PRIVATE_FRAMEWORKS = Preferences
 GJWSPreferences_CFLAGS = -fobjc-arc
+GJWSPreferences_LDFLAGS = -undefined dynamic_lookup
 
 include $(THEOS_MAKE_PATH)/bundle.mk
 
