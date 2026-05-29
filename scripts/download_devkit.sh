@@ -2,7 +2,7 @@
 set -e
 
 DEVKIT_DIR="lib"
-DEVKIT_URL="${DEVKIT_URL:-https://github.com/frida/frida/releases/download/17.9.11/frida-gumjs-devkit-17.9.11-ios-arm64.tar.xz}"
+DEVKIT_URL="${DEVKIT_URL:-https://github.com/rickbrian/frida_me/releases/download/17.9.11-ios-stealth/stealth-frida-gumjs-devkit-17.9.11-ios-arm64.tar.xz}"
 
 mkdir -p "$DEVKIT_DIR"
 
