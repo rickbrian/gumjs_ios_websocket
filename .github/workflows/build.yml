@@ -104,3 +104,47 @@ jobs:
           git add -A
           git commit -m "Deploy Sileo repo"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+
+  # 把编译好的 deb 自动推送到统一 Sileo 源 (rickbrian/repo)
+  # 需要在本仓库配置 secret: REPO_TOKEN (对 rickbrian/repo 有写权限的 PAT)
+  publish-to-repo:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: GumJSWebSocket-deb
+          path: incoming
+
+      - name: Push deb to rickbrian/repo
+        env:
+          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+        run: |
+          if [ -z "$REPO_TOKEN" ]; then
+            echo "::error::缺少 secret REPO_TOKEN, 无法推送到统一源"
+            exit 1
+          fi
+          sudo apt-get update && sudo apt-get install -y dpkg-dev
+          DEB=$(ls incoming/*.deb 2>/dev/null | head -1)
+          if [ -z "$DEB" ]; then
+            echo "::error::artifact 里没有 .deb"
+            exit 1
+          fi
+          PKG=$(dpkg-deb -f "$DEB" Package)
+          echo "包名: $PKG, 文件: $(basename "$DEB")"
+          git clone "https://x-access-token:${REPO_TOKEN}@github.com/rickbrian/repo.git" repo
+          mkdir -p repo/debs
+          rm -f repo/debs/${PKG}_*.deb
+          cp "$DEB" repo/debs/
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "没有变化, 跳过"
+            exit 0
+          fi
+          git commit -m "Update ${PKG} deb ($(basename "$DEB"))"
+          git push
