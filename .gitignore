@@ -11,6 +11,10 @@ zygisk-gumjs-websocket/
 zygisk-gumjs-websocket.zip
 stealth-frida-gumjs-devkit-17.9.11-ios-arm64/
 
+# Local scratch / tooling files
+.python-version
+test.js
+
 # OS files
 .DS_Store
 Thumbs.db

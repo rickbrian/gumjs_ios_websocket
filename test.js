@@ -1,1 +1,0 @@
-conslog.log("hello")
