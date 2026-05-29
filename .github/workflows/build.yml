@@ -23,20 +23,18 @@ jobs:
           brew install ldid make dpkg
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
-          curl -L https://github.com/theos/sdks/archive/refs/heads/master.zip -o /tmp/sdks.zip
-          unzip -q /tmp/sdks.zip -d /tmp/
-          cp -r /tmp/sdks-master/*.sdk $THEOS/sdks/
-          rm -rf /tmp/sdks-master /tmp/sdks.zip
-          ls $THEOS/sdks/
 
-      - name: Install AltList into Theos
+      - name: Install AltList headers + stub
         run: |
           export THEOS=$HOME/theos
-          export PATH="$THEOS/bin:$PATH"
           git clone https://github.com/opa334/AltList.git /tmp/AltList
-          cd /tmp/AltList
-          chmod +x install_to_theos.sh
-          ./install_to_theos.sh
+          mkdir -p $THEOS/include/AltList
+          cp /tmp/AltList/*.h $THEOS/include/AltList/
+          mkdir -p $THEOS/lib/iphone/rootless/AltList.framework
+          cp vendor/AltList.tbd $THEOS/lib/iphone/rootless/AltList.framework/AltList.tbd
+          mkdir -p $THEOS/lib/AltList.framework
+          cp vendor/AltList.tbd $THEOS/lib/AltList.framework/AltList.tbd
+          rm -rf /tmp/AltList
 
       - name: Download Frida DevKit
         env:
