@@ -8,9 +8,12 @@ static NSString *const kConfigPath =
 @implementation GJWSRootListController
 
 - (void)_loadSectionsFromSpecifier {
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:
+        @"NOT (atl_bundleIdentifier BEGINSWITH 'com.apple') AND atl_isHidden == NO"];
     _applicationSections = @[
         [[ATLApplicationSection alloc]
-            initNonCustomSectionWithType:SECTION_TYPE_USER]
+            initCustomSectionWithPredicate:predicate
+                               sectionName:@"Applications"]
     ];
 }
 

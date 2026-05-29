@@ -4,10 +4,14 @@
 static NSString *const kConfigPath =
     @"/var/mobile/Library/Preferences/com.gjws.config.plist";
 
+static NSString *const kDefaultURI = @"ws://192.168.1.100:14725/ws";
+
 @implementation GJWSAppConfigController
 
 - (NSArray *)specifiers {
     if (!_specifiers) {
+        [self ensureDefaultURI];
+
         NSMutableArray *specs = [NSMutableArray new];
 
         PSSpecifier *group1 =
@@ -34,9 +38,14 @@ static NSString *const kConfigPath =
                                             cell:PSEditTextCell
                                             edit:nil];
         [uri setProperty:@"uri" forKey:@"prefKey"];
-        [uri setProperty:@"ws://192.168.1.100:14725/ws" forKey:@"placeholder"];
+        [uri setProperty:kDefaultURI forKey:@"placeholder"];
         [uri setProperty:@NO forKey:@"noAutoCorrect"];
         [specs addObject:uri];
+
+        PSSpecifier *uriHint = [PSSpecifier groupSpecifierWithName:@""];
+        [uriHint setProperty:@"需填完整地址：ws://电脑IP:14725/ws\n端口 14725 和 /ws 固定，只改 IP 为电脑局域网地址"
+                      forKey:@"footerText"];
+        [specs addObject:uriHint];
 
         PSSpecifier *delay =
             [PSSpecifier preferenceSpecifierNamed:@"Delay (ms)"
@@ -70,6 +79,25 @@ static NSString *const kConfigPath =
 
 - (NSDictionary *)appConfig {
     return [self loadConfig][@"apps"][self.applicationID] ?: @{};
+}
+
+- (void)ensureDefaultURI {
+    if (!self.applicationID) return;
+
+    NSDictionary *appConf = [self appConfig];
+    NSString *existing = appConf[@"uri"];
+    if (existing && existing.length > 0) return;
+
+    NSMutableDictionary *config = [self loadConfig];
+    NSMutableDictionary *apps =
+        [config[@"apps"] mutableCopy] ?: [NSMutableDictionary new];
+    NSMutableDictionary *appConfM =
+        [apps[self.applicationID] mutableCopy] ?: [NSMutableDictionary new];
+
+    appConfM[@"uri"] = kDefaultURI;
+    apps[self.applicationID] = appConfM;
+    config[@"apps"] = apps;
+    [self saveConfig:config];
 }
 
 #pragma mark - Read / Write
