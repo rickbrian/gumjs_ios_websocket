@@ -16,8 +16,9 @@ fi
 
 cd "$REPO_DIR"
 
-# Exact same format as Frida official repo (https://build.frida.re/)
+# 生成索引: 明文 + bz2 + gz (bz2 是 Sileo 生态主流, 对齐 alias20 等可用源)
 dpkg-scanpackages debs /dev/null > Packages
+bzip2 -9kc Packages > Packages.bz2
 gzip -9c Packages > Packages.gz
 
 cat > Release << 'EOF'
@@ -26,7 +27,7 @@ Label: GumJS WebSocket
 Suite: stable
 Version: 1.0
 Codename: ios
-Architectures: iphoneos-arm64
+Architectures: iphoneos-arm iphoneos-arm64
 Components: main
 Description: GumJS WebSocket iOS tweak repository
 EOF
