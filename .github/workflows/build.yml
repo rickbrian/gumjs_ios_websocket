@@ -23,6 +23,11 @@ jobs:
           brew install ldid make dpkg
           export THEOS=$HOME/theos
           git clone --recursive https://github.com/theos/theos.git $THEOS
+          curl -L https://github.com/theos/sdks/archive/refs/heads/master.zip -o /tmp/sdks.zip
+          unzip -q /tmp/sdks.zip -d /tmp/
+          cp -r /tmp/sdks-master/*.sdk $THEOS/sdks/
+          rm -rf /tmp/sdks-master /tmp/sdks.zip
+          ls $THEOS/sdks/
 
       - name: Install AltList into Theos
         run: |
