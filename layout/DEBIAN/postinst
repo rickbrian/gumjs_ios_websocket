@@ -1,6 +1,4 @@
 #!/bin/bash
-# Restart SpringBoard after install to load the tweak
-if [ "$1" = "configure" ]; then
-    sbreload 2>/dev/null || killall -9 SpringBoard 2>/dev/null || true
-fi
+# 不强制重启。安装的是 Substrate tweak (DynamicLibraries 下的 dylib+plist),
+# Sileo 会自动检测并在完成界面提示用户手动重启 SpringBoard。
 exit 0
