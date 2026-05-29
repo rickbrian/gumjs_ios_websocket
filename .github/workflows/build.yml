@@ -60,6 +60,36 @@ jobs:
           chmod +x scripts/build_repo.sh
           ./scripts/build_repo.sh repo packages
 
+      - name: Diagnose engine dylib
+        run: |
+          set -x
+          mkdir -p /tmp/ext
+          dpkg-deb -x packages/*.deb /tmp/ext || true
+          DYLIB=$(find /tmp/ext -name 'libGJWSEngine.dylib' | head -1)
+          echo "dylib path: $DYLIB"
+          mkdir -p repo
+          {
+            echo "=== path ==="
+            echo "$DYLIB"
+            echo
+            echo "=== file ==="
+            file "$DYLIB"
+            echo
+            echo "=== otool -L (dependencies) ==="
+            otool -L "$DYLIB"
+            echo
+            echo "=== otool -l (platform / min os) ==="
+            otool -l "$DYLIB" | grep -A5 -iE 'LC_BUILD_VERSION|LC_VERSION_MIN|platform|minos|sdk'
+            echo
+            echo "=== nm -u (UNDEFINED symbols) ==="
+            nm -u "$DYLIB"
+            echo
+            echo "=== nm -mU (undefined w/ details, frida/glib/gum/quickjs) ==="
+            nm -mU "$DYLIB" | grep -iE 'undefined' | head -200
+          } > repo/engine_diag.txt 2>&1
+          echo "----- engine_diag.txt -----"
+          cat repo/engine_diag.txt
+
       - name: Deploy to gh-pages branch
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
