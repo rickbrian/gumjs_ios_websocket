@@ -14,6 +14,19 @@
 		<true/>
 		<key>label</key>
 		<string>GumJS WebSocket</string>
+		<key>subcontrollerClass</key>
+		<string>GJWSAppConfigController</string>
+		<key>useSearchBar</key>
+		<true/>
+		<key>showIdentifiersAsSubtitle</key>
+		<true/>
+		<key>sections</key>
+		<array>
+			<dict>
+				<key>sectionType</key>
+				<string>User</string>
+			</dict>
+		</array>
 	</dict>
 </dict>
 </plist>

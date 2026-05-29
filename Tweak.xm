@@ -16,15 +16,13 @@ typedef void (*gjws_start_func)(const char *uri);
             [NSDictionary dictionaryWithContentsOfFile:kGJWSConfigPath];
         if (!config) return;
 
-        if (![config[@"enabled"] boolValue]) return;
-
         NSDictionary *apps = config[@"apps"];
         if (!apps) return;
 
         NSDictionary *appConfig = apps[bundleId];
         if (!appConfig) return;
 
-        if (appConfig[@"inject"] && ![appConfig[@"inject"] boolValue]) return;
+        if (![appConfig[@"inject"] boolValue]) return;
 
         NSString *uri = appConfig[@"uri"];
         if (!uri || uri.length == 0) return;

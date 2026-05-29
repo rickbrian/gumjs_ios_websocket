@@ -1,5 +1,4 @@
-#import <Preferences/PSListController.h>
+#import <AltList/ATLApplicationListSubcontroller.h>
 
-@interface GJWSAppConfigController : PSListController
-@property (nonatomic, strong) NSString *bundleId;
+@interface GJWSAppConfigController : ATLApplicationListSubcontroller
 @end

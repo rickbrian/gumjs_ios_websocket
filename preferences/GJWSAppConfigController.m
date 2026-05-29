@@ -8,9 +8,6 @@ static NSString *const kConfigPath =
 
 - (NSArray *)specifiers {
     if (!_specifiers) {
-        self.bundleId = [self.specifier propertyForKey:@"bundleId"];
-        self.title = self.bundleId;
-
         NSMutableArray *specs = [NSMutableArray new];
 
         PSSpecifier *group1 =
@@ -37,16 +34,9 @@ static NSString *const kConfigPath =
                                             cell:PSEditTextCell
                                             edit:nil];
         [uri setProperty:@"uri" forKey:@"prefKey"];
-        [uri setProperty:@"ws://192.168.1.100:14725/ws"
-                  forKey:@"placeholder"];
+        [uri setProperty:@"ws://192.168.1.100:14725/ws" forKey:@"placeholder"];
         [uri setProperty:@NO forKey:@"noAutoCorrect"];
         [specs addObject:uri];
-
-        PSSpecifier *uriHint =
-            [PSSpecifier groupSpecifierWithName:@""];
-        [uriHint setProperty:@"格式: ws://{电脑IP}:14725/ws\n例如: ws://192.168.1.100:14725/ws"
-                      forKey:@"footerText"];
-        [specs addObject:uriHint];
 
         PSSpecifier *delay =
             [PSSpecifier preferenceSpecifierNamed:@"Delay (ms)"
@@ -61,22 +51,6 @@ static NSString *const kConfigPath =
         [delay setProperty:@1 forKey:@"isNumeric"];
         [specs addObject:delay];
 
-        // --- Danger Zone ---
-        PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@""];
-        [specs addObject:group2];
-
-        PSSpecifier *del =
-            [PSSpecifier preferenceSpecifierNamed:@"Delete This App"
-                                          target:self
-                                             set:nil
-                                             get:nil
-                                          detail:nil
-                                            cell:PSButtonCell
-                                            edit:nil];
-        del->action = @selector(confirmDelete);
-        [del setProperty:@YES forKey:@"isDestructive"];
-        [specs addObject:del];
-
         _specifiers = specs;
     }
     return _specifiers;
@@ -87,8 +61,7 @@ static NSString *const kConfigPath =
 - (NSMutableDictionary *)loadConfig {
     NSDictionary *d =
         [NSDictionary dictionaryWithContentsOfFile:kConfigPath];
-    return d ? [d mutableCopy]
-             : [@{ @"enabled" : @NO, @"apps" : @{} } mutableCopy];
+    return d ? [d mutableCopy] : [@{ @"apps" : @{} } mutableCopy];
 }
 
 - (void)saveConfig:(NSDictionary *)config {
@@ -96,7 +69,7 @@ static NSString *const kConfigPath =
 }
 
 - (NSDictionary *)appConfig {
-    return [self loadConfig][@"apps"][self.bundleId] ?: @{};
+    return [self loadConfig][@"apps"][self.applicationID] ?: @{};
 }
 
 #pragma mark - Read / Write
@@ -105,7 +78,8 @@ static NSString *const kConfigPath =
     NSString *key = [specifier propertyForKey:@"prefKey"];
     id value = [self appConfig][key];
 
-    if ([key isEqualToString:@"delay"] && [value isKindOfClass:[NSNumber class]]) {
+    if ([key isEqualToString:@"delay"] &&
+        [value isKindOfClass:[NSNumber class]]) {
         return [value stringValue];
     }
     return value;
@@ -113,13 +87,13 @@ static NSString *const kConfigPath =
 
 - (void)setPref:(id)value specifier:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"prefKey"];
-    if (!key || !self.bundleId) return;
+    if (!key || !self.applicationID) return;
 
     NSMutableDictionary *config = [self loadConfig];
     NSMutableDictionary *apps =
         [config[@"apps"] mutableCopy] ?: [NSMutableDictionary new];
     NSMutableDictionary *appConf =
-        [apps[self.bundleId] mutableCopy] ?: [NSMutableDictionary new];
+        [apps[self.applicationID] mutableCopy] ?: [NSMutableDictionary new];
 
     if ([key isEqualToString:@"delay"]) {
         appConf[key] = @([value intValue]);
@@ -127,43 +101,9 @@ static NSString *const kConfigPath =
         appConf[key] = value;
     }
 
-    apps[self.bundleId] = appConf;
+    apps[self.applicationID] = appConf;
     config[@"apps"] = apps;
     [self saveConfig:config];
-}
-
-#pragma mark - Delete
-
-- (void)confirmDelete {
-    UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Confirm"
-                         message:[NSString stringWithFormat:
-                                               @"Remove configuration for %@?",
-                                               self.bundleId]
-                  preferredStyle:UIAlertControllerStyleAlert];
-
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
-                                              style:UIAlertActionStyleCancel
-                                            handler:nil]];
-
-    __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction
-                         actionWithTitle:@"Delete"
-                                   style:UIAlertActionStyleDestructive
-                                 handler:^(UIAlertAction *action) {
-                                     [weakSelf deleteApp];
-                                 }]];
-
-    [self presentViewController:alert animated:YES completion:nil];
-}
-
-- (void)deleteApp {
-    NSMutableDictionary *config = [self loadConfig];
-    NSMutableDictionary *apps = [config[@"apps"] mutableCopy];
-    [apps removeObjectForKey:self.bundleId];
-    config[@"apps"] = apps;
-    [self saveConfig:config];
-    [self.navigationController popViewControllerAnimated:YES];
 }
 
 @end

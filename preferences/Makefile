@@ -9,8 +9,10 @@ BUNDLE_NAME = GJWSPreferences
 GJWSPreferences_FILES = GJWSRootListController.m GJWSAppConfigController.m
 GJWSPreferences_INSTALL_PATH = /Library/PreferenceBundles
 GJWSPreferences_FRAMEWORKS = UIKit
+GJWSPreferences_EXTRA_FRAMEWORKS = AltList
+GJWSPreferences_PRIVATE_FRAMEWORKS = Preferences
 GJWSPreferences_CFLAGS = -fobjc-arc
-GJWSPreferences_LDFLAGS = -undefined dynamic_lookup
+GJWSPreferences_LDFLAGS = -rpath /Library/Frameworks -rpath /var/jb/Library/Frameworks
 
 include $(THEOS_MAKE_PATH)/bundle.mk
 

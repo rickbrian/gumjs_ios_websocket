@@ -1,4 +1,4 @@
-#import <Preferences/PSListController.h>
+#import <AltList/ATLApplicationListSubcontrollerController.h>
 
-@interface GJWSRootListController : PSListController
+@interface GJWSRootListController : ATLApplicationListSubcontrollerController
 @end
