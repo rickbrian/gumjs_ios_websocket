@@ -136,14 +136,15 @@ async def handle_client(websocket: WebSocketServerProtocol, path: str):
             all_websocket.remove(websocket)
 
 
-async def main_async(loop):
+async def main_async():
     global js_file_path, last_modified_time
 
     if len(sys.argv) != 2:
         print("Usage: python server.py <path_to_js_file>")
         sys.exit(1)
 
-    js_file_path = sys.argv[1]
+    loop = asyncio.get_running_loop()
+    js_file_path = os.path.abspath(sys.argv[1])
 
     if not os.path.isfile(js_file_path):
         print(f"Error: {js_file_path} does not exist")
@@ -165,13 +166,10 @@ async def main_async(loop):
 
 
 def main():
-    loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(main_async(loop))
+        asyncio.run(main_async())
     except KeyboardInterrupt:
         print("Server shutting down...")
-    finally:
-        loop.close()
 
 
 if __name__ == "__main__":

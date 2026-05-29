@@ -1,5 +1,6 @@
 #include "GJWSEngine.h"
 #include "LogHelper.h"
+#include "GJWSWebSocket.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmodule-import-in-extern-c"
@@ -22,8 +23,10 @@ static GumScript *g_script = NULL;
 static GMainContext *g_context = NULL;
 static GMainLoop *g_loop = NULL;
 
-static NSURLSession *g_wsSession = nil;
-static NSURLSessionWebSocketTask *g_wsTask = nil;
+// 自包含 WebSocket 通讯 (纯 BSD socket, 不依赖 NSURLSession/CFNetwork/SSL)
+static GJWSWebSocket g_wsClient;
+static std::thread *g_readerThread = NULL;
+static std::atomic<bool> g_stop{false};
 
 static std::unordered_map<std::string, std::vector<std::string>> g_scriptChunks;
 
@@ -31,11 +34,7 @@ static std::atomic<bool> g_started{false};
 
 #pragma mark - Forward Declarations
 
-@interface _GJWSWebSocketDelegate : NSObject <NSURLSessionWebSocketDelegate>
-@end
-
-static void gjws_ws_send(NSString *text);
-static void gjws_ws_receive_next(void);
+static void gjws_ws_send(const char *text);
 static void gjws_on_script_message(const gchar *message, GBytes *data, gpointer user_data);
 static void gjws_start_script_sync(const char *source);
 static void gjws_create_script_async(const char *source);
@@ -72,7 +71,7 @@ static void gjws_exclude_own_range(void) {
 static void gjws_on_script_message(const gchar *message, GBytes *data,
                                    gpointer user_data) {
     if (!message) return;
-    gjws_ws_send([NSString stringWithUTF8String:message]);
+    gjws_ws_send(message);
 }
 
 #pragma mark - Safe Script Unload
@@ -220,78 +219,66 @@ static gboolean gjws_dispatch_ws_message(gpointer data) {
     return G_SOURCE_REMOVE;
 }
 
-#pragma mark - WebSocket
+#pragma mark - WebSocket (self-contained BSD socket)
 
-static void gjws_ws_send(NSString *text) {
-    if (!g_wsTask) return;
-    NSURLSessionWebSocketMessage *m =
-        [[NSURLSessionWebSocketMessage alloc] initWithString:text];
-    [g_wsTask sendMessage:m
-        completionHandler:^(NSError *err) {
-            if (err)
-                GJWS_LOG("WS send error: %{public}@", err.localizedDescription);
-        }];
+static void gjws_ws_send(const char *text) {
+    if (!text) return;
+    g_wsClient.sendText(text);   // _fd<0 时为安全空操作
 }
 
-static void gjws_ws_receive_next(void) {
-    if (!g_wsTask) return;
-    [g_wsTask
-        receiveMessageWithCompletionHandler:^(
-            NSURLSessionWebSocketMessage *message, NSError *error) {
-            if (error) {
-                GJWS_LOG("WS receive error: %{public}@",
-                         error.localizedDescription);
-                if (g_loop) g_main_loop_quit(g_loop);
-                return;
-            }
+// 独立读线程: 负责连接/握手/收帧/断线自动重连。
+// 收到的文本消息通过 g_idle_add 投递回 GumJS 主循环线程处理。
+static void gjws_ws_reader_thread(std::string uri) {
+    std::string host, path;
+    int port = 0;
+    if (!GJWSWebSocket::parseURI(uri, host, port, path)) {
+        GJWS_LOG("Invalid WebSocket URI: %{public}s", uri.c_str());
+        GJWS_FLOG("reader: bad uri %s", uri.c_str());
+        if (g_loop) g_main_loop_quit(g_loop);
+        return;
+    }
 
-            if (message.type == NSURLSessionWebSocketMessageTypeString &&
-                message.string) {
-                const char *cstr = [message.string UTF8String];
-                _GJWSPendingMsg *pm =
-                    (_GJWSPendingMsg *)calloc(1, sizeof(_GJWSPendingMsg));
-                pm->json = strdup(cstr);
-                g_idle_add(gjws_dispatch_ws_message, pm);
-            }
+    GJWS_FLOG("reader thread started host=%s port=%d path=%s",
+              host.c_str(), port, path.c_str());
 
-            gjws_ws_receive_next();
-        }];
-}
+    while (!g_stop.load()) {
+        GJWS_LOG("WebSocket connecting to %{public}s:%d%{public}s ...",
+                 host.c_str(), port, path.c_str());
 
-#pragma mark - WebSocket Delegate
+        if (!g_wsClient.connectTo(host, port, path)) {
+            GJWS_LOG("WebSocket connect failed, retry in 2s");
+            for (int i = 0; i < 20 && !g_stop.load(); i++) usleep(100 * 1000);
+            continue;
+        }
 
-static _GJWSWebSocketDelegate *g_wsDelegate = nil;
+        GJWS_LOG("WebSocket connected (fd=%d)", g_wsClient.fd());
+        GJWS_FLOG("ws connected fd=%d", g_wsClient.fd());
+        gjws_ws_send(
+            "{\"type\":\"start\",\"message\":\"websocket client success\"}");
 
-@implementation _GJWSWebSocketDelegate
+        for (;;) {
+            std::string msg;
+            int r = g_wsClient.recvMessage(msg);
+            if (r < 0) break;                // 断开
+            if (r != 1) continue;            // 非文本帧, 忽略
 
-- (void)URLSession:(NSURLSession *)session
-          webSocketTask:(NSURLSessionWebSocketTask *)task
-    didOpenWithProtocol:(NSString *)protocol {
-    GJWS_LOG("WebSocket connected");
-    gjws_ws_send(
-        @"{\"type\":\"start\",\"message\":\"websocket client success\"}");
-    gjws_ws_receive_next();
-}
+            _GJWSPendingMsg *pm =
+                (_GJWSPendingMsg *)calloc(1, sizeof(_GJWSPendingMsg));
+            pm->json = strdup(msg.c_str());
+            g_idle_add(gjws_dispatch_ws_message, pm);
+        }
 
-- (void)URLSession:(NSURLSession *)session
-          webSocketTask:(NSURLSessionWebSocketTask *)task
-     didCloseWithCode:(NSURLSessionWebSocketCloseCode)code
-                reason:(NSData *)reason {
-    GJWS_LOG("WebSocket closed (code=%ld)", (long)code);
+        g_wsClient.closeSocket();
+        GJWS_LOG("WebSocket disconnected");
+        GJWS_FLOG("ws disconnected");
+
+        if (g_stop.load()) break;
+        for (int i = 0; i < 20 && !g_stop.load(); i++) usleep(100 * 1000);
+    }
+
+    GJWS_FLOG("reader thread exiting");
     if (g_loop) g_main_loop_quit(g_loop);
 }
-
-- (void)URLSession:(NSURLSession *)session
-                    task:(NSURLSessionTask *)task
-    didCompleteWithError:(NSError *)error {
-    if (error) {
-        GJWS_LOG("WS connection failed: %{public}@",
-                 error.localizedDescription);
-        if (g_loop) g_main_loop_quit(g_loop);
-    }
-}
-
-@end
 
 #pragma mark - Engine Lifecycle
 
@@ -315,27 +302,9 @@ static void gjws_run_loop(const char *uri) {
     g_loop = g_main_loop_new(g_context, FALSE);
     GJWS_FLOG("after main_loop_new loop=%p", (void *)g_loop);
 
-    @autoreleasepool {
-        g_wsDelegate = [_GJWSWebSocketDelegate new];
-        NSURLSessionConfiguration *cfg =
-            [NSURLSessionConfiguration defaultSessionConfiguration];
-        cfg.timeoutIntervalForRequest = 30;
-        cfg.timeoutIntervalForResource = 300;
-        g_wsSession = [NSURLSession sessionWithConfiguration:cfg
-                                                    delegate:g_wsDelegate
-                                               delegateQueue:nil];
-
-        NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:uri]];
-        if (!url) {
-            GJWS_LOG("Invalid WebSocket URI, aborting");
-            gum_deinit_embedded();
-            g_started.store(false);
-            return;
-        }
-        g_wsTask = [g_wsSession webSocketTaskWithURL:url];
-        [g_wsTask resume];
-        GJWS_FLOG("ws task resumed");
-    }
+    g_stop.store(false);
+    g_readerThread = new std::thread(gjws_ws_reader_thread, std::string(uri));
+    GJWS_FLOG("reader thread spawned");
 
     GJWS_LOG("WebSocket connecting...");
     GJWS_FLOG("before main_loop_run");
@@ -347,6 +316,15 @@ static void gjws_run_loop(const char *uri) {
     GJWS_FLOG("after main_loop_run (loop exited)");
 
     GJWS_LOG("Engine loop exited, cleaning up...");
+
+    // 停止读线程并关闭 socket (closeSocket 会唤醒阻塞中的 recv)
+    g_stop.store(true);
+    g_wsClient.closeSocket();
+    if (g_readerThread) {
+        g_readerThread->join();
+        delete g_readerThread;
+        g_readerThread = NULL;
+    }
 
     gjws_unload_current_script();
 
@@ -361,14 +339,6 @@ static void gjws_run_loop(const char *uri) {
     if (g_loop) {
         g_main_loop_unref(g_loop);
         g_loop = NULL;
-    }
-
-    @autoreleasepool {
-        [g_wsTask cancel];
-        g_wsTask = nil;
-        [g_wsSession invalidateAndCancel];
-        g_wsSession = nil;
-        g_wsDelegate = nil;
     }
 
     gum_deinit_embedded();
