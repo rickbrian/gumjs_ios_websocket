@@ -297,13 +297,23 @@ static _GJWSWebSocketDelegate *g_wsDelegate = nil;
 
 static void gjws_run_loop(const char *uri) {
     GJWS_LOG("Engine starting (uri=%{public}s)", uri);
+    GJWS_FLOG("run_loop begin uri=%s", uri ? uri : "(null)");
 
+    GJWS_FLOG("before gum_init_embedded");
     gum_init_embedded();
+    GJWS_FLOG("after gum_init_embedded");
+
     g_backend = gum_script_backend_obtain_qjs();
+    GJWS_FLOG("after obtain_qjs backend=%p", (void *)g_backend);
+
     g_cancellable = g_cancellable_new();
+    GJWS_FLOG("after cancellable_new");
 
     g_context = g_main_context_default();
+    GJWS_FLOG("after main_context_default ctx=%p", (void *)g_context);
+
     g_loop = g_main_loop_new(g_context, FALSE);
+    GJWS_FLOG("after main_loop_new loop=%p", (void *)g_loop);
 
     @autoreleasepool {
         g_wsDelegate = [_GJWSWebSocketDelegate new];
@@ -324,13 +334,17 @@ static void gjws_run_loop(const char *uri) {
         }
         g_wsTask = [g_wsSession webSocketTaskWithURL:url];
         [g_wsTask resume];
+        GJWS_FLOG("ws task resumed");
     }
 
     GJWS_LOG("WebSocket connecting...");
+    GJWS_FLOG("before main_loop_run");
 
     g_main_context_push_thread_default(g_context);
     g_main_loop_run(g_loop);
     g_main_context_pop_thread_default(g_context);
+
+    GJWS_FLOG("after main_loop_run (loop exited)");
 
     GJWS_LOG("Engine loop exited, cleaning up...");
 
@@ -364,19 +378,25 @@ static void gjws_run_loop(const char *uri) {
 }
 
 void gjws_start(const char *uri) {
+    GJWS_FLOG("gjws_start entered uri=%s", uri ? uri : "(null)");
+
     bool expected = false;
     if (!g_started.compare_exchange_strong(expected, true)) {
         GJWS_LOG("Engine already running, ignoring duplicate start");
+        GJWS_FLOG("gjws_start: already running, ignore");
         return;
     }
 
     GJWS_LOG("gjws_start called");
     char *uri_copy = strdup(uri);
+    GJWS_FLOG("gjws_start: spawning engine thread");
     std::thread t([uri_copy]() {
+        GJWS_FLOG("engine thread started");
         gjws_run_loop(uri_copy);
         free(uri_copy);
     });
     t.detach();
+    GJWS_FLOG("gjws_start: thread detached");
 }
 
 void gjws_cleanup(void) {
