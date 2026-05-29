@@ -81,11 +81,14 @@ jobs:
             echo "=== otool -l (platform / min os) ==="
             otool -l "$DYLIB" | grep -A5 -iE 'LC_BUILD_VERSION|LC_VERSION_MIN|platform|minos|sdk'
             echo
-            echo "=== nm -u (UNDEFINED symbols) ==="
-            nm -u "$DYLIB"
+            echo "=== otool -hv (header flags / namespace) ==="
+            otool -hv "$DYLIB"
             echo
-            echo "=== nm -mU (undefined w/ details, frida/glib/gum/quickjs) ==="
-            nm -mU "$DYLIB" | grep -iE 'undefined' | head -200
+            echo "=== exported symbol count (nm -gU | wc -l) ==="
+            nm -gU "$DYLIB" | wc -l
+            echo
+            echo "=== exported symbols (nm -gU) ==="
+            nm -gU "$DYLIB"
           } > repo/engine_diag.txt 2>&1
           echo "----- engine_diag.txt -----"
           cat repo/engine_diag.txt

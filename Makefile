@@ -17,9 +17,9 @@ include $(THEOS_MAKE_PATH)/tweak.mk
 LIBRARY_NAME = libGJWSEngine
 
 libGJWSEngine_FILES = Sources/GJWSEngine.mm
-libGJWSEngine_CFLAGS = -fobjc-arc -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c -Ilib
-libGJWSEngine_CCFLAGS = -std=c++17 -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c
-libGJWSEngine_LDFLAGS = lib/libfrida-gumjs.a -lresolv
+libGJWSEngine_CFLAGS = -fobjc-arc -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c -Ilib -fvisibility=hidden
+libGJWSEngine_CCFLAGS = -std=c++17 -fno-modules -fno-cxx-modules -Wno-module-import-in-extern-c -fvisibility=hidden -fvisibility-inlines-hidden
+libGJWSEngine_LDFLAGS = lib/libfrida-gumjs.a -lresolv -Wl,-exported_symbols_list,Sources/engine_exports.txt
 libGJWSEngine_FRAMEWORKS = Foundation Security
 libGJWSEngine_INSTALL_PATH = /usr/lib
 
