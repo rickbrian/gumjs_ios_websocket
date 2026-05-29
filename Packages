@@ -1,0 +1,16 @@
+Package: com.gjws.gumjswebsocket
+Version: 1.0.9
+Architecture: iphoneos-arm64
+Maintainer: rickbrian
+Installed-Size: 22244
+Depends: mobilesubstrate (>= 0.9.5000), preferenceloader, com.opa334.altlist
+Filename: debs/com.gjws.gumjswebsocket_1.0.9_iphoneos-arm64.deb
+Size: 5504386
+MD5sum: 2929c497e7a24f3455db8623360b9978
+SHA1: afed3699b1e7bfa46dad5acb890db3f4888fe93a
+SHA256: 663b1b47b56564ecd820f5cc1dc75a7a17613c3e3a40482d0405641b1d202831
+Section: Tweaks
+Description: Inject GumJS scripts into iOS apps via WebSocket. Supports hot-reload from PC server.
+Author: rickbrian
+Name: GumJS WebSocket
+
